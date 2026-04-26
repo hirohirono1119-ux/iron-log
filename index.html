@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>IRON LOG — 筋トレ記録</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --surface2: #1e1e1e;
+  --border: #2a2a2a;
+  --accent: #e63946;
+  --accent2: #ff6b6b;
+  --gold: #ffd60a;
+  --text: #f0f0f0;
+  --muted: #888;
+  --success: #2ecc71;
+  --blue: #6fa3ef;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Noto Sans JP',sans-serif; min-height:100vh; overflow-x:hidden; }
+
+/* HEADER */
+header { background:var(--surface); border-bottom:2px solid var(--accent); padding:14px 20px; position:sticky; top:0; z-index:100; }
+header h1 { font-family:'Bebas Neue',sans-serif; font-size:28px; letter-spacing:4px; color:var(--accent); line-height:1; }
+header .sub { color:var(--muted); font-size:10px; letter-spacing:2px; text-transform:uppercase; }
+
+/* HEADER BUTTONS */
+.hdr-btn { background:rgba(230,57,70,.15); border:1px solid rgba(230,57,70,.4); color:var(--accent2); border-radius:6px; padding:6px 12px; font-size:11px; cursor:pointer; font-family:'Noto Sans JP',sans-serif; letter-spacing:1px; white-space:nowrap; }
+.hdr-btn:hover { background:rgba(230,57,70,.3); }
+
+/* CHART OVERLAY */
+.chart-overlay { display:none; position:fixed; inset:0; background:var(--bg); z-index:300; flex-direction:column; }
+.chart-overlay.open { display:flex; }
+.chart-hdr { background:var(--surface); border-bottom:2px solid var(--accent); padding:14px 20px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+.chart-hdr-title { font-family:'Bebas Neue',sans-serif; font-size:24px; letter-spacing:3px; color:var(--accent); }
+.chart-close { background:var(--surface2); border:1px solid var(--border); color:var(--text); width:44px; height:44px; border-radius:50%; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; }
+.chart-body { flex:1; overflow-y:auto; padding:16px; }
+.chart-select-wrap { margin-bottom:16px; }
+.chart-select-label { font-size:10px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:6px; }
+.chart-select { background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:10px 12px; width:100%; font-size:14px; font-family:'Noto Sans JP',sans-serif; outline:none; }
+.chart-metric-btns { display:flex; gap:8px; margin-bottom:16px; }
+.metric-btn { flex:1; background:var(--surface); border:1px solid var(--border); color:var(--muted); border-radius:6px; padding:8px; font-size:12px; cursor:pointer; font-family:'Noto Sans JP',sans-serif; transition:all .2s; }
+.metric-btn.active { background:rgba(230,57,70,.2); border-color:var(--accent); color:var(--accent2); }
+.chart-canvas-wrap { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:16px; }
+.chart-empty { text-align:center; color:var(--muted); font-size:13px; padding:40px 0; }
+.chart-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
+.stat-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px; text-align:center; }
+.stat-val { font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--accent); }
+.stat-lbl { font-size:9px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-top:2px; }
+
+/* CALENDAR NAV */
+.cal-nav { display:flex; align-items:center; justify-content:center; gap:20px; padding:16px 20px; background:var(--surface); border-bottom:1px solid var(--border); }
+.cal-nav button { background:none; border:1px solid var(--border); color:var(--text); width:34px; height:34px; border-radius:4px; cursor:pointer; font-size:20px; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+.cal-nav button:hover { border-color:var(--accent); color:var(--accent); }
+.cal-nav h2 { font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:4px; min-width:200px; text-align:center; }
+
+/* CALENDAR GRID */
+.cal-wrap { padding:16px; max-width:860px; margin:0 auto; }
+.day-headers { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:4px; }
+.day-header { text-align:center; font-size:10px; letter-spacing:2px; color:var(--muted); padding:6px 0; text-transform:uppercase; }
+.day-header.sun { color:var(--accent2); }
+.day-header.sat { color:var(--blue); }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+
+.day-cell { background:var(--surface); border:1px solid var(--border); border-radius:6px; min-height:80px; padding:6px; cursor:pointer; position:relative; overflow:hidden; transition:all .15s; }
+.day-cell:hover { border-color:var(--accent); background:var(--surface2); transform:translateY(-1px); }
+.day-cell.empty { background:transparent; border-color:transparent; cursor:default; pointer-events:none; }
+.day-cell.today { border-color:var(--gold); }
+.day-cell.today .day-num { color:var(--gold); }
+.day-cell.sun .day-num { color:var(--accent2); }
+.day-cell.sat .day-num { color:var(--blue); }
+.day-cell.has-log::after { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:var(--accent); border-radius:6px 0 0 6px; }
+.day-num { font-family:'Bebas Neue',sans-serif; font-size:18px; line-height:1; margin-bottom:4px; }
+.ex-chip { font-size:9px; background:rgba(230,57,70,.18); border:1px solid rgba(230,57,70,.35); border-radius:3px; padding:1px 4px; color:var(--accent2); margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* MODAL */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:200; align-items:flex-end; justify-content:center; backdrop-filter:blur(4px); }
+.modal-overlay.open { display:flex; }
+.modal { background:var(--surface); border:1px solid var(--border); border-top:3px solid var(--accent); border-radius:16px 16px 0 0; width:100%; max-width:600px; max-height:88vh; overflow-y:auto; padding:24px 24px 110px; animation:slideUp .25s ease; }
+@keyframes slideUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+.modal-hdr { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
+.modal-title { font-family:'Bebas Neue',sans-serif; font-size:24px; letter-spacing:3px; color:var(--accent); }
+.modal-date { color:var(--muted); font-size:12px; letter-spacing:1px; margin-top:2px; }
+.close-btn { background:var(--surface2); border:1px solid var(--border); color:var(--text); width:44px; height:44px; border-radius:50%; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.close-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+/* EXERCISE CARD */
+.ex-list { display:flex; flex-direction:column; gap:12px; }
+.ex-card { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:14px; }
+.ex-card-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px; }
+.ex-name-input { background:none; border:none; border-bottom:1px solid var(--border); color:var(--text); font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:2px; padding:2px 0; flex:1; min-width:0; outline:none; transition:border-color .2s; }
+.ex-name-input:focus { border-bottom-color:var(--accent); }
+.ex-name-input::placeholder { color:var(--muted); font-size:13px; font-family:'Noto Sans JP',sans-serif; letter-spacing:0; }
+.card-actions { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+
+.video-btn { display:inline-flex; align-items:center; gap:3px; background:rgba(230,57,70,.08); border:1px solid rgba(230,57,70,.25); color:var(--muted); border-radius:100px; padding:3px 10px; font-size:11px; letter-spacing:1px; cursor:pointer; transition:all .2s; white-space:nowrap; font-family:'Noto Sans JP',sans-serif; }
+.video-btn.set { background:rgba(230,57,70,.15); border-color:rgba(230,57,70,.5); color:var(--accent2); }
+.video-btn:hover { background:rgba(230,57,70,.25); border-color:var(--accent); color:var(--accent); }
+.video-unset { opacity:.6; font-size:9px; }
+
+.remove-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:12px; padding:2px 6px; font-family:'Noto Sans JP',sans-serif; }
+.remove-btn:hover { color:var(--accent); }
+
+/* SETS */
+.sets-grid { display:grid; grid-template-columns:auto 1fr 1fr auto; gap:6px; align-items:center; margin-bottom:6px; }
+.col-label { font-size:9px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; text-align:center; }
+.set-num { font-family:'Bebas Neue',sans-serif; font-size:14px; color:var(--muted); text-align:center; }
+.num-input { background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text); font-size:13px; padding:5px 8px; text-align:center; outline:none; width:100%; transition:border-color .2s; font-family:'Noto Sans JP',sans-serif; }
+.num-input:focus { border-color:var(--accent); }
+.rm-set-btn { background:none; border:none; color:var(--border); cursor:pointer; font-size:13px; line-height:1; transition:color .2s; }
+.rm-set-btn:hover { color:var(--accent); }
+.add-set-btn { background:none; border:1px dashed var(--border); color:var(--muted); border-radius:4px; padding:5px; cursor:pointer; font-size:11px; width:100%; letter-spacing:1px; font-family:'Noto Sans JP',sans-serif; transition:all .2s; }
+.add-set-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+/* SETTINGS */
+.settings-sec { margin-top:10px; border-top:1px solid var(--border); padding-top:10px; }
+.settings-toggle { background:none; border:none; color:var(--muted); cursor:pointer; font-size:11px; letter-spacing:1px; display:flex; align-items:center; gap:6px; font-family:'Noto Sans JP',sans-serif; }
+.settings-toggle .arr { transition:transform .2s; display:inline-block; }
+.settings-toggle.open .arr { transform:rotate(90deg); }
+.settings-fields { display:none; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+.settings-fields.open { display:grid; }
+.field-group { display:flex; flex-direction:column; gap:3px; }
+.field-label { font-size:9px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
+.field-input { background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text); font-size:12px; padding:5px 8px; outline:none; width:100%; font-family:'Noto Sans JP',sans-serif; transition:border-color .2s; }
+.field-input:focus { border-color:var(--accent); }
+.notes-area { background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text); font-size:12px; padding:6px 8px; width:100%; min-height:52px; resize:vertical; outline:none; font-family:'Noto Sans JP',sans-serif; transition:border-color .2s; }
+.notes-area:focus { border-color:var(--accent); }
+
+/* ADD EXERCISE FOOTER */
+.add-ex-footer { margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
+.section-label { font-size:10px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; margin-bottom:8px; }
+.preset-btns { display:flex; flex-wrap:wrap; gap:6px; }
+.preset-btn { background:var(--surface2); border:1px solid var(--border); color:var(--muted); border-radius:100px; padding:4px 12px; font-size:11px; cursor:pointer; transition:all .2s; font-family:'Noto Sans JP',sans-serif; }
+.preset-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+/* FLOAT SAVE BUTTON */
+.btn-save-float { display:none; position:fixed; bottom:16px; right:20px; z-index:9990; background:var(--accent); border:none; color:white; border-radius:100px; padding:10px 24px; cursor:pointer; font-size:13px; letter-spacing:2px; font-weight:700; font-family:'Noto Sans JP',sans-serif; box-shadow:0 4px 20px rgba(230,57,70,.5); transition:background .2s; white-space:nowrap; }
+.btn-save-float.saved { background:var(--success); box-shadow:0 4px 20px rgba(46,204,113,.4); }
+
+/* TOAST */
+.toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--success); color:#fff; padding:8px 24px; border-radius:100px; font-size:13px; letter-spacing:1px; transition:transform .3s ease; z-index:9999; pointer-events:none; }
+.toast.show { transform:translateX(-50%) translateY(0); }
+
+/* URL DIALOG */
+.url-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:9999; align-items:center; justify-content:center; padding:20px; }
+.url-overlay.open { display:flex; }
+.url-dialog { background:var(--surface); border:1px solid var(--border); border-top:3px solid var(--accent); border-radius:12px; padding:24px; width:100%; max-width:400px; animation:slideUp .2s ease; }
+.url-dialog-title { font-family:'Bebas Neue',sans-serif; font-size:20px; letter-spacing:2px; color:var(--accent); margin-bottom:4px; }
+.url-dialog-sub { font-size:12px; color:var(--muted); margin-bottom:16px; }
+.url-input { background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:14px; padding:10px 12px; width:100%; outline:none; font-family:'Noto Sans JP',sans-serif; transition:border-color .2s; margin-bottom:16px; }
+.url-input:focus { border-color:var(--accent); }
+.url-actions { display:flex; gap:10px; }
+.url-cancel { flex:1; background:none; border:1px solid var(--border); color:var(--muted); border-radius:6px; padding:10px; cursor:pointer; font-size:13px; font-family:'Noto Sans JP',sans-serif; }
+.url-save { flex:2; background:var(--accent); border:none; color:white; border-radius:6px; padding:10px; cursor:pointer; font-size:13px; font-weight:700; font-family:'Noto Sans JP',sans-serif; }
+
+@media (max-width:600px) {
+  .cal-wrap { padding:10px; }
+  .day-cell { min-height:64px; padding:4px; }
+  .day-num { font-size:15px; }
+  .ex-chip { display:none; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <div>
+      <h1>IRON LOG</h1>
+      <div class="sub">筋トレ記録アプリ</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button id="chartBtn" class="hdr-btn">📈 チャート</button>
+      <button id="exportBtn" class="hdr-btn">⬇ CSV</button>
+    </div>
+  </div>
+</header>
+
+<div class="cal-nav">
+  <button id="prevBtn">‹</button>
+  <h2 id="monthLabel"></h2>
+  <button id="nextBtn">›</button>
+</div>
+
+<div class="cal-wrap">
+  <div class="day-headers">
+    <div class="day-header sun">日</div>
+    <div class="day-header">月</div>
+    <div class="day-header">火</div>
+    <div class="day-header">水</div>
+    <div class="day-header">木</div>
+    <div class="day-header">金</div>
+    <div class="day-header sat">土</div>
+  </div>
+  <div class="cal-grid" id="calGrid"></div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div>
+        <div class="modal-title">WORKOUT</div>
+        <div class="modal-date" id="modalDate"></div>
+      </div>
+      <button class="close-btn" id="closeBtn">✕</button>
+    </div>
+    <div class="section-label">種目一覧</div>
+    <div class="ex-list" id="exList"></div>
+    <div class="add-ex-footer">
+      <div class="section-label">＋ 種目を追加</div>
+      <div class="preset-btns" id="presetBtns">
+        <button class="preset-btn" data-name="ベンチプレス">🏋️ ベンチプレス</button>
+        <button class="preset-btn" data-name="スクワット">🦵 スクワット</button>
+        <button class="preset-btn" data-name="ショルダープレス">💪 ショルダープレス</button>
+        <button class="preset-btn" data-name="インクラインダンベルカール">💪 インクラインダンベルカール</button>
+        <button class="preset-btn" data-name="ラットプルダウン">🔽 ラットプルダウン</button>
+        <button class="preset-btn" data-name="デッドリフト">⚡ デッドリフト</button>
+        <button class="preset-btn" data-name="インクラインプレス">📐 インクラインプレス</button>
+        <button class="preset-btn" data-name="レッグプレス">🦵 レッグプレス</button>
+        <button class="preset-btn" data-name="">✏️ カスタム</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FLOAT SAVE -->
+<button class="btn-save-float" id="saveBtn">保存する</button>
+
+<!-- TOAST -->
+<div class="toast" id="toast">✓ 保存しました</div>
+
+<!-- CHART OVERLAY -->
+<div class="chart-overlay" id="chartOverlay">
+  <div class="chart-hdr">
+    <div class="chart-hdr-title">📈 CHART</div>
+    <button class="chart-close" id="chartClose">✕</button>
+  </div>
+  <div class="chart-body">
+    <div class="chart-select-wrap">
+      <div class="chart-select-label">種目を選択</div>
+      <select class="chart-select" id="chartExSelect"></select>
+    </div>
+    <div class="chart-metric-btns">
+      <button class="metric-btn active" data-metric="weight">最大重量 (kg)</button>
+      <button class="metric-btn" data-metric="reps">最大回数</button>
+      <button class="metric-btn" data-metric="volume">総ボリューム</button>
+    </div>
+    <div class="chart-stats" id="chartStats"></div>
+    <div class="chart-canvas-wrap">
+      <canvas id="chartCanvas" height="220"></canvas>
+      <div class="chart-empty" id="chartEmpty" style="display:none;">データがありません</div>
+    </div>
+  </div>
+</div>
+
+<!-- URL DIALOG -->
+<div class="url-overlay" id="urlOverlay">
+  <div class="url-dialog">
+    <div class="url-dialog-title">参考動画を設定</div>
+    <div class="url-dialog-sub" id="urlDialogSub"></div>
+    <input class="url-input" id="urlInput" type="url" placeholder="https://youtube.com/watch?v=...">
+    <div class="url-actions">
+      <button class="url-cancel" id="urlCancel">キャンセル</button>
+      <button class="url-save" id="urlSave">設定する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  定数
+// ============================================================
+const DAYS        = ['日','月','火','水','木','金','土'];
+const MONTHS_JP   = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+const DEFAULT_NAMES = ['ベンチプレス','スクワット','ショルダープレス','インクラインダンベルカール','ラットプルダウン'];
+const STORAGE_KEY = 'ironlog_data';
+const VIDEO_KEY   = 'ironlog_video_urls';
+
+// ============================================================
+//  状態
+// ============================================================
+const now = new Date();
+let currentYear  = now.getFullYear();
+let currentMonth = now.getMonth();
+let selectedKey  = null;
+let currentExercises = [];
+let urlDialogIdx = null;
+
+let workoutData = {};
+let videoUrlMap = {};
+try { workoutData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch(e) {}
+try { videoUrlMap = JSON.parse(localStorage.getItem(VIDEO_KEY)   || '{}'); } catch(e) {}
+
+// ============================================================
+//  ユーティリティ
+// ============================================================
+function dateKey(y, m, d) {
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+
+function makeExercise(name) {
+  return {
+    name: name || '',
+    sets: [{ weight:'', reps:'' }],
+    settings: { seatHeight:'', grip:'', angle:'', other:'', note:'' },
+    videoUrl: (name && videoUrlMap[name]) ? videoUrlMap[name] : ''
+  };
+}
+
+function makeDefaults() {
+  return DEFAULT_NAMES.map(n => makeExercise(n));
+}
+
+function getLatestSaved(beforeKey) {
+  const keys = Object.keys(workoutData)
+    .filter(k => workoutData[k]?.length > 0 && k < beforeKey)
+    .sort();
+  return keys.length ? workoutData[keys[keys.length - 1]] : null;
+}
+
+function toYoutubeAppUrl(url) {
+  try {
+    const u = new URL(url);
+    // youtube.com/watch?v=XXXX
+    if (u.hostname.includes('youtube.com') && u.searchParams.get('v')) {
+      return 'vnd.youtube://' + u.searchParams.get('v');
+    }
+    // youtube.com/shorts/XXXX
+    if (u.hostname.includes('youtube.com') && u.pathname.includes('/shorts/')) {
+      const videoId = u.pathname.split('/shorts/')[1].split('?')[0];
+      return 'vnd.youtube://' + videoId;
+    }
+    // youtu.be/XXXX
+    if (u.hostname === 'youtu.be') {
+      return 'vnd.youtube://' + u.pathname.slice(1).split('?')[0];
+    }
+  } catch(e) {}
+  return url;
+}
+
+function saveVideoUrl(name, url) {
+  if (!name) return;
+  videoUrlMap[name] = url;
+  localStorage.setItem(VIDEO_KEY, JSON.stringify(videoUrlMap));
+  Object.keys(workoutData).forEach(k => {
+    workoutData[k].forEach(ex => { if (ex.name === name) ex.videoUrl = url; });
+  });
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(workoutData));
+}
+
+// ============================================================
+//  カレンダー
+// ============================================================
+function renderCalendar() {
+  const grid = document.getElementById('calGrid');
+  document.getElementById('monthLabel').textContent = `${currentYear}年 ${MONTHS_JP[currentMonth]}`;
+  grid.innerHTML = '';
+
+  const firstDay    = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+  const todayKey    = dateKey(now.getFullYear(), now.getMonth(), now.getDate());
+
+  for (let i = 0; i < firstDay; i++) {
+    const el = document.createElement('div');
+    el.className = 'day-cell empty';
+    grid.appendChild(el);
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dow   = (firstDay + d - 1) % 7;
+    const key   = dateKey(currentYear, currentMonth, d);
+    const saved = workoutData[key];
+    const cell  = document.createElement('div');
+
+    let cls = 'day-cell';
+    if (key === todayKey) cls += ' today';
+    if (dow === 0) cls += ' sun';
+    if (dow === 6) cls += ' sat';
+    if (saved?.length > 0) cls += ' has-log';
+    cell.className = cls;
+
+    let html = `<div class="day-num">${d}</div>`;
+    if (saved?.length > 0) {
+      saved.slice(0, 3).forEach(ex => {
+        html += `<div class="ex-chip">${ex.name || '—'}</div>`;
+      });
+    }
+    cell.innerHTML = html;
+    cell.addEventListener('click', () => openModal(currentYear, currentMonth, d));
+    grid.appendChild(cell);
+  }
+}
+
+// ============================================================
+//  モーダル
+// ============================================================
+function openModal(y, m, d) {
+  selectedKey = dateKey(y, m, d);
+  const dow = DAYS[new Date(y, m, d).getDay()];
+  document.getElementById('modalDate').textContent = `${y}年${m+1}月${d}日（${dow}）`;
+
+  const saved = workoutData[selectedKey];
+  if (saved?.length > 0) {
+    currentExercises = JSON.parse(JSON.stringify(saved));
+  } else {
+    const latest = getLatestSaved(selectedKey);
+    if (latest) {
+      currentExercises = JSON.parse(JSON.stringify(latest)).map(ex => ({
+        ...ex, sets: ex.sets.map(() => ({ weight:'', reps:'' }))
+      }));
+    } else {
+      currentExercises = makeDefaults();
+    }
+  }
+
+  renderExList();
+  document.getElementById('modalOverlay').classList.add('open');
+  const btn = document.getElementById('saveBtn');
+  btn.style.display = 'block';
+  btn.classList.remove('saved');
+  btn.textContent = '保存する';
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.getElementById('saveBtn').style.display = 'none';
+}
+
+// ============================================================
+//  種目リスト描画
+// ============================================================
+function renderExList() {
+  // 再描画前にDOMの現在値を同期
+  syncFromDOM();
+  const list = document.getElementById('exList');
+  list.innerHTML = '';
+  currentExercises.forEach((ex, idx) => list.appendChild(buildCard(ex, idx)));
+}
+
+function buildCard(ex, idx) {
+  const card = document.createElement('div');
+  card.className = 'ex-card';
+
+  const setsHtml = ex.sets.map((s, si) => `
+    <div class="set-num">S${si+1}</div>
+    <input class="num-input" type="number" placeholder="kg" value="${s.weight}" min="0" step="0.5" data-si="${si}" data-field="weight">
+    <input class="num-input" type="number" placeholder="回" value="${s.reps}" min="0" data-si="${si}" data-field="reps">
+    <button class="rm-set-btn" data-rsi="${si}">✕</button>
+  `).join('');
+
+  const st = ex.settings || {};
+  card.innerHTML = `
+    <div class="ex-card-hdr">
+      <input class="ex-name-input" type="text" placeholder="種目名を入力…" value="${ex.name}">
+      <div class="card-actions">
+        <button class="video-btn ${ex.videoUrl ? 'set' : ''}">
+          ▶ 動画${ex.videoUrl ? '' : '&nbsp;<span class="video-unset">未設定</span>'}
+        </button>
+        <button class="remove-btn">削除</button>
+      </div>
+    </div>
+    <div class="sets-grid">
+      <div class="col-label"></div>
+      <div class="col-label">重量(kg)</div>
+      <div class="col-label">回数</div>
+      <div></div>
+      ${setsHtml}
+    </div>
+    <button class="add-set-btn">＋ セットを追加</button>
+    <div class="settings-sec">
+      <button class="settings-toggle">
+        <span class="arr">▶</span> マシン設定・メモ
+      </button>
+      <div class="settings-fields">
+        <div class="field-group">
+          <label class="field-label">シート高さ</label>
+          <input class="field-input" type="text" placeholder="例: 3番" data-key="seatHeight" value="${st.seatHeight||''}">
+        </div>
+        <div class="field-group">
+          <label class="field-label">グリップ幅</label>
+          <input class="field-input" type="text" placeholder="例: 肩幅+1" data-key="grip" value="${st.grip||''}">
+        </div>
+        <div class="field-group">
+          <label class="field-label">角度・傾き</label>
+          <input class="field-input" type="text" placeholder="例: 30°" data-key="angle" value="${st.angle||''}">
+        </div>
+        <div class="field-group">
+          <label class="field-label">その他設定</label>
+          <input class="field-input" type="text" placeholder="自由入力" data-key="other" value="${st.other||''}">
+        </div>
+        <div class="field-group" style="grid-column:1/-1">
+          <label class="field-label">メモ</label>
+          <textarea class="notes-area" placeholder="気づいたことなど…">${st.note||''}</textarea>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // 動画ボタン
+  card.querySelector('.video-btn').addEventListener('click', () => {
+    syncFromDOM();
+    if (currentExercises[idx].videoUrl) {
+      const appUrl = toYoutubeAppUrl(currentExercises[idx].videoUrl);
+      if (appUrl.startsWith('vnd.youtube://')) {
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+        iframe.src = appUrl;
+        setTimeout(() => document.body.removeChild(iframe), 1500);
+      } else {
+        window.open(currentExercises[idx].videoUrl, '_blank', 'noopener,noreferrer');
+      }
+    } else {
+      openUrlDialog(idx);
+    }
+  });
+
+  // 削除
+  card.querySelector('.remove-btn').addEventListener('click', () => {
+    syncFromDOM();
+    currentExercises.splice(idx, 1);
+    renderExList();
+  });
+
+  // セット削除
+  card.querySelectorAll('[data-rsi]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      syncFromDOM();
+      const si = +e.target.dataset.rsi;
+      if (currentExercises[idx].sets.length > 1) {
+        currentExercises[idx].sets.splice(si, 1);
+        renderExList();
+      }
+    });
+  });
+
+  // セット追加
+  card.querySelector('.add-set-btn').addEventListener('click', () => {
+    syncFromDOM();
+    currentExercises[idx].sets.push({ weight:'', reps:'' });
+    renderExList();
+  });
+
+  // マシン設定トグル
+  const toggle = card.querySelector('.settings-toggle');
+  const fields = card.querySelector('.settings-fields');
+  toggle.addEventListener('click', () => {
+    toggle.classList.toggle('open');
+    fields.classList.toggle('open');
+  });
+
+  return card;
+}
+
+// ============================================================
+//  URLダイアログ
+// ============================================================
+function openUrlDialog(idx) {
+  urlDialogIdx = idx;
+  document.getElementById('urlDialogSub').textContent = currentExercises[idx].name || '種目';
+  document.getElementById('urlInput').value = '';
+  document.getElementById('urlOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('urlInput').focus(), 100);
+}
+
+function closeUrlDialog() {
+  document.getElementById('urlOverlay').classList.remove('open');
+  urlDialogIdx = null;
+}
+
+document.getElementById('urlCancel').addEventListener('click', closeUrlDialog);
+document.getElementById('urlOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('urlOverlay')) closeUrlDialog();
+});
+document.getElementById('urlSave').addEventListener('click', () => {
+  const url = document.getElementById('urlInput').value.trim();
+  if (url && urlDialogIdx !== null) {
+    currentExercises[urlDialogIdx].videoUrl = url;
+    saveVideoUrl(currentExercises[urlDialogIdx].name, url);
+    renderExList();
+  }
+  closeUrlDialog();
+});
+document.getElementById('urlInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('urlSave').click();
+});
+
+// ============================================================
+//  保存
+// ============================================================
+function syncFromDOM() {
+  // DOMの現在値を currentExercises に同期する
+  document.querySelectorAll('.ex-card').forEach((card, idx) => {
+    if (!currentExercises[idx]) return;
+    currentExercises[idx].name = card.querySelector('.ex-name-input').value;
+    card.querySelectorAll('[data-field="weight"]').forEach((inp, si) => {
+      if (currentExercises[idx].sets[si]) currentExercises[idx].sets[si].weight = inp.value;
+    });
+    card.querySelectorAll('[data-field="reps"]').forEach((inp, si) => {
+      if (currentExercises[idx].sets[si]) currentExercises[idx].sets[si].reps = inp.value;
+    });
+    card.querySelectorAll('.field-input').forEach(inp => {
+      if (currentExercises[idx].settings) currentExercises[idx].settings[inp.dataset.key] = inp.value;
+    });
+    const ta = card.querySelector('.notes-area');
+    if (ta && currentExercises[idx].settings) currentExercises[idx].settings.note = ta.value;
+  });
+}
+
+document.getElementById('saveBtn').addEventListener('click', () => {
+  syncFromDOM();
+  workoutData[selectedKey] = JSON.parse(JSON.stringify(currentExercises));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(workoutData));
+  renderCalendar();
+  const btn = document.getElementById('saveBtn');
+  btn.classList.add('saved');
+  btn.textContent = '✓ 保存済み';
+  const toast = document.getElementById('toast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+});
+
+// ============================================================
+//  チャート
+// ============================================================
+let chartMetric = 'weight';
+let chartExName = '';
+
+function getAllExerciseNames() {
+  const names = new Set();
+  Object.values(workoutData).forEach(exList => {
+    exList.forEach(ex => { if (ex.name) names.add(ex.name); });
+  });
+  return [...names].sort();
+}
+
+function getChartData(exName, metric) {
+  const points = [];
+  Object.entries(workoutData)
+    .sort(([a],[b]) => a.localeCompare(b))
+    .forEach(([key, exList]) => {
+      const ex = exList.find(e => e.name === exName);
+      if (!ex || !ex.sets?.length) return;
+      const sets = ex.sets.filter(s => s.weight !== '' || s.reps !== '');
+      if (!sets.length) return;
+      let val = 0;
+      if (metric === 'weight') {
+        val = Math.max(...sets.map(s => parseFloat(s.weight) || 0));
+      } else if (metric === 'reps') {
+        val = Math.max(...sets.map(s => parseFloat(s.reps) || 0));
+      } else { // volume
+        val = sets.reduce((sum, s) => sum + (parseFloat(s.weight)||0) * (parseFloat(s.reps)||0), 0);
+      }
+      if (val > 0) points.push({ date: key, val });
+    });
+  return points;
+}
+
+function drawChart(points) {
+  const canvas = document.getElementById('chartCanvas');
+  const empty  = document.getElementById('chartEmpty');
+  if (!points.length) {
+    canvas.style.display = 'none';
+    empty.style.display  = 'block';
+    return;
+  }
+  canvas.style.display = 'block';
+  empty.style.display  = 'none';
+
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.parentElement.clientWidth - 32;
+  const H   = 220;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const PAD = { top:16, right:16, bottom:40, left:48 };
+  const gW = W - PAD.left - PAD.right;
+  const gH = H - PAD.top  - PAD.bottom;
+
+  const vals = points.map(p => p.val);
+  const minV = Math.min(...vals);
+  const maxV = Math.max(...vals);
+  const range = maxV - minV || 1;
+
+  // グリッド
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = PAD.top + gH * (1 - i/4);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + gW, y); ctx.stroke();
+    const label = (minV + range * i/4).toFixed(1).replace(/\.0$/,'');
+    ctx.fillStyle = '#666';
+    ctx.font = `10px sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.fillText(label, PAD.left - 6, y + 4);
+  }
+
+  // ライン塗りつぶし
+  const pts = points.map((p, i) => ({
+    x: PAD.left + gW * i / Math.max(points.length - 1, 1),
+    y: PAD.top  + gH * (1 - (p.val - minV) / range)
+  }));
+
+  const grad = ctx.createLinearGradient(0, PAD.top, 0, PAD.top + gH);
+  grad.addColorStop(0, 'rgba(230,57,70,.4)');
+  grad.addColorStop(1, 'rgba(230,57,70,.02)');
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, PAD.top + gH);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, PAD.top + gH);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // ライン
+  ctx.beginPath();
+  ctx.strokeStyle = '#e63946';
+  ctx.lineWidth = 2;
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.stroke();
+
+  // 点
+  pts.forEach((p, i) => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+    ctx.fillStyle = '#e63946';
+    ctx.fill();
+    ctx.strokeStyle = '#0a0a0a';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+
+  // X軸ラベル（最大5件）
+  ctx.fillStyle = '#666';
+  ctx.font = '9px sans-serif';
+  ctx.textAlign = 'center';
+  const step = Math.ceil(points.length / 5);
+  points.forEach((p, i) => {
+    if (i % step !== 0 && i !== points.length - 1) return;
+    const x = pts[i].x;
+    const label = p.date.slice(5); // MM-DD
+    ctx.fillText(label, x, PAD.top + gH + 18);
+  });
+}
+
+function renderChartStats(points) {
+  const el = document.getElementById('chartStats');
+  if (!points.length) { el.innerHTML = ''; return; }
+  const vals = points.map(p => p.val);
+  const max  = Math.max(...vals);
+  const last = vals[vals.length - 1];
+  const diff = vals.length >= 2 ? last - vals[vals.length - 2] : 0;
+  el.innerHTML = `
+    <div class="stat-card"><div class="stat-val">${max.toFixed(1).replace(/\.0$/,'')}</div><div class="stat-lbl">最大値</div></div>
+    <div class="stat-card"><div class="stat-val">${last.toFixed(1).replace(/\.0$/,'')}</div><div class="stat-lbl">直近</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:${diff>=0?'var(--success)':'var(--accent2)'}">${diff>=0?'+':''}${diff.toFixed(1).replace(/\.0$/,'')}</div><div class="stat-lbl">前回比</div></div>
+  `;
+}
+
+function updateChart() {
+  const points = getChartData(chartExName, chartMetric);
+  renderChartStats(points);
+  drawChart(points);
+}
+
+function openChart() {
+  const names = getAllExerciseNames();
+  const sel = document.getElementById('chartExSelect');
+  sel.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join('');
+  chartExName = names[0] || '';
+  updateChart();
+  document.getElementById('chartOverlay').classList.add('open');
+}
+
+document.getElementById('chartBtn').addEventListener('click', openChart);
+document.getElementById('chartClose').addEventListener('click', () => {
+  document.getElementById('chartOverlay').classList.remove('open');
+});
+document.getElementById('chartExSelect').addEventListener('change', e => {
+  chartExName = e.target.value;
+  updateChart();
+});
+document.querySelectorAll('.metric-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.metric-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    chartMetric = btn.dataset.metric;
+    updateChart();
+  });
+});
+
+// ============================================================
+//  CSVエクスポート
+// ============================================================
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const rows = ['日付,種目,セット,重量(kg),回数,ボリューム,シート高さ,グリップ幅,角度,その他,メモ'];
+  Object.entries(workoutData).sort(([a],[b]) => a.localeCompare(b)).forEach(([date, exList]) => {
+    exList.forEach(ex => {
+      ex.sets.forEach((s, si) => {
+        const vol = ((parseFloat(s.weight)||0) * (parseFloat(s.reps)||0)).toFixed(1);
+        const st  = ex.settings || {};
+        const row = [
+          date, ex.name, si+1, s.weight, s.reps, vol,
+          st.seatHeight||'', st.grip||'', st.angle||'', st.other||'',
+          (st.note||'').replace(/\n/g,' ')
+        ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',');
+        rows.push(row);
+      });
+    });
+  });
+  const bom  = '\uFEFF';
+  const blob = new Blob([bom + rows.join('\n')], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `ironlog_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+// ============================================================
+//  イベント
+// ============================================================
+document.getElementById('closeBtn').addEventListener('click', closeModal);
+document.getElementById('modalOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+});
+document.getElementById('presetBtns').addEventListener('click', e => {
+  const btn = e.target.closest('.preset-btn');
+  if (!btn) return;
+  currentExercises.push(makeExercise(btn.dataset.name));
+  renderExList();
+  document.getElementById('exList').lastElementChild?.scrollIntoView({ behavior:'smooth' });
+});
+document.getElementById('prevBtn').addEventListener('click', () => {
+  if (currentMonth === 0) { currentMonth = 11; currentYear--; } else currentMonth--;
+  renderCalendar();
+});
+document.getElementById('nextBtn').addEventListener('click', () => {
+  if (currentMonth === 11) { currentMonth = 0; currentYear++; } else currentMonth++;
+  renderCalendar();
+});
+
+// ============================================================
+//  起動
+// ============================================================
+renderCalendar();
+</script>
+</body>
+</html>
