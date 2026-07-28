@@ -1,0 +1,13 @@
+# 資格情報・収集データは絶対にコミットしない
+.env
+data/
+
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+logs/

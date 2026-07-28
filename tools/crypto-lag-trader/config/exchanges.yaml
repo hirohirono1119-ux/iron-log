@@ -1,0 +1,36 @@
+# 取引所の定義。role: watch = データ収集のみ / trade = 発注可(Phase 3以降)
+# adapter が未実装の取引所は collector 起動時に警告を出してスキップされる
+exchanges:
+  binance_global:
+    adapter: binance_global
+    role: [watch]
+    symbols: [BTCUSDT]
+
+  bitflyer:
+    adapter: bitflyer
+    role: [watch, trade]
+    symbols: [BTC_JPY]
+    # 手数料はシグナル判定の入力値(DESIGN.md §1.1.3)。実装時に最新の手数料表で更新する
+    fees:
+      taker_pct: 0.15
+      maker_pct: 0.15
+
+  binance_japan:
+    adapter: binance_japan   # 未実装(Phase 1 ステップ3)
+    role: [watch, trade]
+    symbols: [BTCJPY]
+
+  gmocoin:
+    adapter: gmocoin         # 未実装(Phase 1 ステップ3)
+    role: [watch, trade]
+    symbols: [BTC_JPY]
+
+  bitbank:
+    adapter: bitbank         # 未実装(Phase 1 ステップ3)
+    role: [watch, trade]
+    symbols: [btc_jpy]
+
+  coincheck:
+    adapter: coincheck       # 未実装(Phase 1 ステップ3)
+    role: [watch]
+    symbols: [btc_jpy]
